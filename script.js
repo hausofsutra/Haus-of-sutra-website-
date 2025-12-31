@@ -1,5 +1,5 @@
 // Behold API Feed URL
-const BEHOLD_FEED_URL = 'https://feeds.behold.so/90R9GBmTwIL3jmD3XZko';
+const BEHOLD_FEED_URL = 'https://feeds.behold.so/OpXJ4UZzBeGFe8tY1g3h';
 
 const wheel = document.getElementById('carousel');
 const usernameEl = document.getElementById('username');
