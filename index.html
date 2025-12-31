@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Feed - Carousel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="carousel-container">
+        <div class="carousel-wheel" id="carousel">
+            <!-- Items will be dynamically loaded from Behold API -->
+            <div class="loading">Loading...</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div class="instructions">Drag or Scroll to rotate</div>
+    </div>
+
+    <div class="post-description-panel" id="postDescription">
+        <div class="description-header">Post Caption</div>
+        <div class="description-content" id="descriptionContent">
+            Select a post to see its caption
+        </div>
+    </div>
+
+    <div class="profile-card" id="profileCard">
+        <img class="profile-avatar" id="profileAvatar" src="" alt="Profile" style="display: none;">
+        <div class="profile-info">
+            <div class="profile-username" id="username"></div>
+            <div class="profile-name" id="profileName"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
