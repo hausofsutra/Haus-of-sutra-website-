@@ -21,7 +21,17 @@
     </div>
 
     <div class="controls">
-        <div class="instructions">Drag or Scroll to rotate</div>
+        <div class="instructions">
+            <svg class="arrow" width="80" height="30" viewBox="0 0 80 30" fill="none"
+                xmlns="http://www.w3.org/2000/svg">
+                <!-- Left arrowhead -->
+                <path d="M8 15 L15 8 M8 15 L15 22" stroke="white" stroke-width="2" stroke-linecap="round" />
+                <!-- Curved arc -->
+                <path d="M12 15 Q40 0 68 15" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" />
+                <!-- Right arrowhead -->
+                <path d="M72 15 L65 8 M72 15 L65 22" stroke="white" stroke-width="2" stroke-linecap="round" />
+            </svg>
+        </div>
         <button class="description-toggle" id="descToggle">Description</button>
     </div>
 

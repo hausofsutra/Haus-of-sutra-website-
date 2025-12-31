@@ -248,7 +248,8 @@ document.addEventListener('click', (e) => {
 let idleTimer;
 function startIdleRotation() {
     idleTimer = setInterval(() => {
-        if (!isDragging) {
+        // Don't rotate if dragging or description is open
+        if (!isDragging && !postDescriptionPanel.classList.contains('show')) {
             targetAngle -= 0.02;
             rotateCarousel();
         }
@@ -279,8 +280,7 @@ descToggleBtn.addEventListener('click', (e) => {
 
 // Close panel when clicking outside
 document.addEventListener('click', (e) => {
-    if (window.innerWidth <= 768 &&
-        postDescriptionPanel.classList.contains('show') &&
+    if (postDescriptionPanel.classList.contains('show') &&
         !postDescriptionPanel.contains(e.target) &&
         e.target !== descToggleBtn) {
 
