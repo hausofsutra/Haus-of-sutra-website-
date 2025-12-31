@@ -6,6 +6,8 @@ const usernameEl = document.getElementById('username');
 const profileAvatarEl = document.getElementById('profileAvatar');
 const profileNameEl = document.getElementById('profileName');
 const descriptionContentEl = document.getElementById('descriptionContent');
+const descToggleBtn = document.getElementById('descToggle');
+const postDescriptionPanel = document.getElementById('postDescription');
 
 let items = [];
 let numItems = 0;
@@ -30,10 +32,8 @@ async function loadFeed() {
             profileAvatarEl.style.display = 'block';
         }
 
-        // Set profile info (biography is the only field available)
-        if (data.biography) {
-            profileNameEl.textContent = data.biography;
-        }
+        // Set profile info - static text as requested
+        profileNameEl.textContent = "Seattle - Tacoma Artist Collective";
 
         // Get first 6 posts
         const posts = data.posts.slice(0, 6);
@@ -194,7 +194,8 @@ function updateItemStyles() {
         visibility = (visibility + 1) / 2;
 
         item.style.opacity = 0.3 + (visibility * 0.7);
-        item.style.filter = `brightness(${0.4 + visibility * 0.6})`;
+        // Removed filter: brightness() as it causes significant stutter on mobile
+        // item.style.filter = `brightness(${0.4 + visibility * 0.6})`;
 
         // Track which item is most visible (centered)
         if (visibility > maxVisibility) {
@@ -261,6 +262,33 @@ function resetIdleTimer() {
 
 document.addEventListener('mousedown', resetIdleTimer);
 document.addEventListener('touchstart', resetIdleTimer);
+
+// Toggle description panel on mobile
+descToggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation(); // Prevent closing immediately
+    postDescriptionPanel.classList.toggle('show');
+    descToggleBtn.classList.toggle('active');
+
+    // Update button text
+    if (postDescriptionPanel.classList.contains('show')) {
+        descToggleBtn.textContent = 'Close';
+    } else {
+        descToggleBtn.textContent = 'Description';
+    }
+});
+
+// Close panel when clicking outside
+document.addEventListener('click', (e) => {
+    if (window.innerWidth <= 768 &&
+        postDescriptionPanel.classList.contains('show') &&
+        !postDescriptionPanel.contains(e.target) &&
+        e.target !== descToggleBtn) {
+
+        postDescriptionPanel.classList.remove('show');
+        descToggleBtn.classList.remove('active');
+        descToggleBtn.textContent = 'Description';
+    }
+});
 
 // Initialize
 window.addEventListener('resize', () => {

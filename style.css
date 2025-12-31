@@ -42,6 +42,7 @@ body {
     transform-style: preserve-3d;
     transition: transform 0.1s ease-out;
     cursor: grab;
+    will-change: transform;
 }
 
 .carousel-wheel:active {
@@ -213,6 +214,61 @@ body {
     color: rgba(255, 255, 255, 0.85);
     max-height: 220px;
     overflow-y: auto;
+    padding-right: 0.5rem;
+    /* Add some space for scrollbar */
+}
+
+/* Custom scrollbar */
+.description-content::-webkit-scrollbar {
+    width: 4px;
+}
+
+.description-content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.description-content::-webkit-scrollbar-thumb {
+    background: rgba(57, 255, 20, 0.5);
+    border-radius: 4px;
+    box-shadow: 0 0 5px rgba(57, 255, 20, 0.5);
+}
+
+.description-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(57, 255, 20, 0.8);
+}
+
+/* Description Toggle Button - Mobile Only */
+.description-toggle {
+    display: none;
+    /* Hidden on desktop */
+    margin-top: 1rem;
+    padding: 0.8rem 1.5rem;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(57, 255, 20, 0.5);
+    border-radius: 30px;
+    color: white;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(57, 255, 20, 0.2);
+    transition: all 0.3s ease;
+    pointer-events: auto;
+    /* Re-enable pointer events since parent has none */
+}
+
+.description-toggle:hover {
+    background: rgba(57, 255, 20, 0.1);
+    box-shadow: 0 0 20px rgba(57, 255, 20, 0.4);
+}
+
+.description-toggle.active {
+    background: rgba(57, 255, 20, 0.2);
+    border-color: rgba(57, 255, 20, 1);
+    box-shadow: 0 0 20px rgba(57, 255, 20, 0.4), inset 0 0 10px rgba(57, 255, 20, 0.2);
 }
 
 /* Responsive sizing */
@@ -220,6 +276,35 @@ body {
     :root {
         --card-width: 240px;
         --card-height: 300px;
+    }
+
+    /* Disable reflection on mobile for performance */
+    .carousel-item {
+        -webkit-box-reflect: unset;
+    }
+
+    .description-toggle {
+        display: inline-block;
+    }
+
+    .post-description-panel {
+        top: auto;
+        bottom: 5rem;
+        /* Above controls */
+        right: 50%;
+        transform: translateX(50%) translateY(20px);
+        width: 90%;
+        max-width: 350px;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 1000;
+    }
+
+    .post-description-panel.show {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(50%) translateY(0);
     }
 }
 
