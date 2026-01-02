@@ -11,16 +11,14 @@
     <meta property="og:type" content="website">
     <meta property="og:title" content="Haus of Sutra">
     <meta property="og:description" content="Seattle/Tacoma Artist Collective">
-    <meta property="og:image"
-        content="https://cdn2.behold.pictures/owahR0PBgJPsk6YcPZkvLzPmLHL2/17841402891565351/profile.webp">
+    <meta property="og:image" content="https://hausofsutra.com/instagram/profile.jpg">
     <meta property="og:url" content="https://hausofsutra.com">
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="Haus of Sutra">
     <meta name="twitter:description" content="Seattle/Tacoma Artist Collective">
-    <meta name="twitter:image"
-        content="https://cdn2.behold.pictures/owahR0PBgJPsk6YcPZkvLzPmLHL2/17841402891565351/profile.webp">
+    <meta name="twitter:image" content="https://hausofsutra.com/instagram/profile.jpg">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,7 +30,7 @@
 
     <div class="carousel-container">
         <div class="carousel-wheel" id="carousel">
-            <!-- Items will be dynamically loaded from Behold API -->
+            <!-- Items dynamically loaded from local instagram/feed.json -->
             <div class="loading">Loading...</div>
         </div>
     </div>
@@ -58,13 +56,15 @@
         </div>
     </div>
 
-    <div class="profile-card" id="profileCard">
-        <img class="profile-avatar" id="profileAvatar" src="" alt="Profile" style="display: none;">
-        <div class="profile-info">
-            <div class="profile-username" id="username"></div>
-            <div class="profile-name" id="profileName"></div>
+    <a href="https://www.instagram.com/hausofsutra/" target="_blank" class="profile-card-link">
+        <div class="profile-card" id="profileCard">
+            <img class="profile-avatar" id="profileAvatar" src="" alt="Profile" style="display: none;">
+            <div class="profile-info">
+                <div class="profile-username" id="username"></div>
+                <div class="profile-name" id="profileName"></div>
+            </div>
         </div>
-    </div>
+    </a>
 
     <script src="script.js"></script>
 </body>

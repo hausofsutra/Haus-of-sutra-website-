@@ -1,5 +1,5 @@
-// Behold API Feed URL
-const BEHOLD_FEED_URL = 'https://feeds.behold.so/OpXJ4UZzBeGFe8tY1g3h';
+// Local Instagram Feed (synced via GitHub Actions)
+const FEED_URL = './instagram/feed.json';
 
 const wheel = document.getElementById('carousel');
 const usernameEl = document.getElementById('username');
@@ -18,7 +18,7 @@ let postCaptions = [];
 // Fetch and render the feed
 async function loadFeed() {
     try {
-        const response = await fetch(BEHOLD_FEED_URL);
+        const response = await fetch(FEED_URL);
         const data = await response.json();
 
         // Set username
@@ -87,7 +87,7 @@ async function loadFeed() {
         setupCarousel();
 
     } catch (error) {
-        console.error('Error loading Behold feed:', error);
+        console.error('Error loading Instagram feed:', error);
         wheel.innerHTML = '<div class="loading">Failed to load feed</div>';
     }
 }
