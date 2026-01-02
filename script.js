@@ -48,8 +48,8 @@ async function loadFeed() {
             item.href = post.permalink;
             item.target = '_blank';
             item.dataset.index = index;
-            item.dataset.caption = post.prunedCaption || post.caption || 'No caption available';
-            postCaptions[index] = post.prunedCaption || post.caption || 'No caption available';
+            item.dataset.caption = post.caption || 'No caption available';
+            postCaptions[index] = post.caption || 'No caption available';
 
             // Use the large size image
             const imgUrl = post.sizes?.large?.mediaUrl || post.thumbnailUrl || post.mediaUrl;
