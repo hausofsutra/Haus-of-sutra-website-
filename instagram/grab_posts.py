@@ -30,7 +30,7 @@ def load_existing_shortcodes():
 
 def save_shortcodes(shortcodes):
     """Save current shortcodes to tracking file."""
-    SHORTCODES_FILE.write_text('\n'.join(shortcodes))
+    SHORTCODES_FILE.write_text('\n'.join(sorted(shortcodes)))
 
 
 def cleanup_old_posts(current_shortcodes):
