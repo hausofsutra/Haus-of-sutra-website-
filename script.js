@@ -59,12 +59,12 @@ async function loadFeed() {
 
             // Extract date from caption if calendar emoji exists
             let eventDate = '';
-            // Match calendar emoji followed by text until newline
-            const dateMatch = (post.caption || '').match(/[🗓📅📆]\s*([^\n\r]+)/);
+            // Match calendar emoji then find the next occurrence of digit/digit
+            const dateMatch = (post.caption || '').match(/[🗓📅📆].*?(\d{1,2}\/\d{1,2})/);
             if (dateMatch && dateMatch[1]) {
-                // Take only the part after the emoji, trim it
                 eventDate = dateMatch[1].trim();
             }
+
 
 
             item.innerHTML = `
