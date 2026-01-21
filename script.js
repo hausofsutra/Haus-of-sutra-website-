@@ -298,3 +298,71 @@ window.addEventListener('resize', () => {
 loadFeed().then(() => {
     resetIdleTimer();
 });
+
+// ============================================
+// HAMBURGER MENU & MODALS
+// ============================================
+
+const hamburgerBtn = document.getElementById('hamburgerBtn');
+const mobileMenu = document.getElementById('mobileMenu');
+const aboutModal = document.getElementById('aboutModal');
+const subscribeModal = document.getElementById('subscribeModal');
+const aboutMenuBtn = document.getElementById('aboutMenuBtn');
+const subscribeMenuBtn = document.getElementById('subscribeMenuBtn');
+
+// Toggle mobile menu
+hamburgerBtn.addEventListener('click', () => {
+    hamburgerBtn.classList.toggle('active');
+    mobileMenu.classList.toggle('show');
+});
+
+// Close mobile menu when clicking outside
+document.addEventListener('click', (e) => {
+    if (!hamburgerBtn.contains(e.target) && !mobileMenu.contains(e.target)) {
+        hamburgerBtn.classList.remove('active');
+        mobileMenu.classList.remove('show');
+    }
+});
+
+// Open About modal
+aboutMenuBtn.addEventListener('click', () => {
+    aboutModal.classList.add('show');
+    mobileMenu.classList.remove('show');
+    hamburgerBtn.classList.remove('active');
+});
+
+// Open Subscribe modal
+subscribeMenuBtn.addEventListener('click', () => {
+    subscribeModal.classList.add('show');
+    mobileMenu.classList.remove('show');
+    hamburgerBtn.classList.remove('active');
+});
+
+// Close modals
+document.querySelectorAll('[data-close]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const modalId = btn.dataset.close;
+        document.getElementById(modalId).classList.remove('show');
+    });
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        aboutModal.classList.remove('show');
+        subscribeModal.classList.remove('show');
+        mobileMenu.classList.remove('show');
+        hamburgerBtn.classList.remove('active');
+    }
+});
+
+// Subscribe form handler (placeholder for now)
+const subscribeForm = document.getElementById('subscribeForm');
+subscribeForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const email = subscribeForm.querySelector('input').value;
+    console.log('Email submitted:', email);
+    alert('Thanks for subscribing! We\'ll be in touch soon.');
+    subscribeForm.reset();
+    subscribeModal.classList.remove('show');
+});

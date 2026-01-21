@@ -27,6 +27,62 @@
 </head>
 
 <body>
+    <!-- Site Header with Hamburger Menu -->
+    <header class="site-header">
+        <a href="https://www.instagram.com/hausofsutra/" target="_blank" class="brand-link">
+            <div class="brand">
+                <img class="brand-avatar" id="profileAvatar" src="instagram/profile.jpg" alt="Haus of Sutra">
+                <span class="brand-name">Haus of Sutra</span>
+            </div>
+        </a>
+        <nav class="site-nav">
+            <a href="https://www.eventbrite.com/o/haus-of-sutra-120811127296" target="_blank"
+                class="nav-btn tickets-btn">Tickets</a>
+            <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </nav>
+    </header>
+
+    <!-- Mobile Menu Overlay -->
+    <div class="mobile-menu" id="mobileMenu">
+        <button class="menu-item" id="aboutMenuBtn">About</button>
+        <!-- <button class="menu-item" id="subscribeMenuBtn">Join the Haus</button> -->
+        <a href="https://www.eventbrite.com/o/haus-of-sutra-120811127296" target="_blank" class="menu-item">Tickets</a>
+
+    </div>
+
+    <!-- About Modal -->
+    <div class="modal" id="aboutModal">
+        <div class="modal-backdrop" data-close="aboutModal"></div>
+        <div class="modal-content">
+            <button class="modal-close" data-close="aboutModal">&times;</button>
+            <h2 class="modal-title">Haus of Sutra</h2>
+            <p class="modal-text">Haus of Sutra is a queer led artist collective that produces nightlife events all
+                around the Puget sound region. We host cabaret events that include burlesque shows, drag shows, comedy,
+                live music and DJ dance nights.</p>
+            <p class="modal-text">Come join the community of people seeking fun, entertaining nightlife with a community
+                vibe. We hope to meet you soon!</p>
+            <a href="https://www.instagram.com/hausofsutra/" target="_blank" class="modal-cta">Follow on Instagram</a>
+        </div>
+    </div>
+
+    <!-- Subscribe Modal -->
+    <div class="modal" id="subscribeModal">
+        <div class="modal-backdrop" data-close="subscribeModal"></div>
+        <div class="modal-content">
+            <button class="modal-close" data-close="subscribeModal">&times;</button>
+            <h2 class="modal-title">Join the Haus</h2>
+            <p class="modal-text">Get notified about upcoming events, exclusive presales, and community updates.</p>
+            <form class="subscribe-form" id="subscribeForm">
+                <input type="email" class="subscribe-input" placeholder="Enter your email" required>
+                <button type="submit" class="subscribe-btn">Subscribe</button>
+            </form>
+            <p class="subscribe-note">Email service coming soon!</p>
+        </div>
+    </div>
 
     <div class="carousel-container">
         <div class="carousel-wheel" id="carousel">
@@ -56,23 +112,8 @@
         </div>
     </div>
 
-    <a href="https://www.instagram.com/hausofsutra/" target="_blank" class="profile-card-link">
-        <div class="profile-card" id="profileCard">
-            <img class="profile-avatar" id="profileAvatar" src="" alt="Profile" style="display: none;">
-            <div class="profile-info">
-                <div class="profile-username" id="username"></div>
-                <div class="profile-name" id="profileName"></div>
-            </div>
-        </div>
-    </a>
-
-    <a href="https://www.eventbrite.com/o/haus-of-sutra-120811127296" target="_blank" class="tickets-card-link">
-        <div class="tickets-card">
-            <span class="tickets-text">Purchase Tickets</span>
-        </div>
-    </a>
-
     <script src="script.js"></script>
 </body>
+
 
 </html>
