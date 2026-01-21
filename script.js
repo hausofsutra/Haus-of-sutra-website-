@@ -354,12 +354,23 @@ subscribeMenuBtn.addEventListener('click', () => {
 });
 
 // Close modals
-document.querySelectorAll('[data-close]').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const modalId = btn.dataset.close;
-        document.getElementById(modalId).classList.remove('show');
-    });
+// Close modals (Event Delegation)
+document.addEventListener('click', (e) => {
+    // Handle close buttons (X icon and backdrop)
+    const closeBtn = e.target.closest('[data-close]');
+    if (closeBtn) {
+        const modalId = closeBtn.dataset.close;
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.remove('show');
+            // Also reset hamburger if closing menu elements (optional, but good safety)
+            hamburgerBtn.classList.remove('active');
+            mobileMenu.classList.remove('show');
+        }
+    }
 });
+
+
 
 // Close modal on Escape key
 document.addEventListener('keydown', (e) => {
