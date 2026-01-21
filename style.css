@@ -693,12 +693,9 @@ body {
     }
 
     .brand-name {
-        font-size: 0.65rem;
-        max-width: 100px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        font-size: 0.8rem;
     }
+
 
     .brand-avatar {
         width: 28px;
