@@ -666,9 +666,18 @@ body {
         top: 65px;
         right: 1rem;
     }
+
+    .mobile-only-item {
+        display: block !important;
+    }
+}
+
+.mobile-only-item {
+    display: none;
 }
 
 @media (max-width: 480px) {
+
     :root {
         --card-width: 200px;
         --card-height: 250px;

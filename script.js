@@ -21,19 +21,22 @@ async function loadFeed() {
         const response = await fetch(FEED_URL);
         const data = await response.json();
 
-        // Set username
-        if (data.username) {
+        // Set username (if element exists)
+        if (data.username && usernameEl) {
             usernameEl.textContent = '@' + data.username;
         }
 
-        // Set profile picture
-        if (data.profilePictureUrl) {
+        // Set profile picture (if element exists)
+        if (data.profilePictureUrl && profileAvatarEl) {
             profileAvatarEl.src = data.profilePictureUrl;
             profileAvatarEl.style.display = 'block';
         }
 
-        // Set profile info - static text as requested
-        profileNameEl.textContent = "Seattle - Tacoma Artist Collective";
+        // Set profile info (if element exists)
+        if (profileNameEl) {
+            profileNameEl.textContent = "Seattle - Tacoma Artist Collective";
+        }
+
 
         // Get first 6 posts
         const posts = data.posts.slice(0, 6);
