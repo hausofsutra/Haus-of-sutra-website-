@@ -59,10 +59,13 @@ async function loadFeed() {
 
             // Extract date from caption if calendar emoji exists
             let eventDate = '';
+            // Match calendar emoji followed by text until newline
             const dateMatch = (post.caption || '').match(/[🗓📅📆]\s*([^\n\r]+)/);
             if (dateMatch && dateMatch[1]) {
+                // Take only the part after the emoji, trim it
                 eventDate = dateMatch[1].trim();
             }
+
 
             item.innerHTML = `
                 <img src="${imgUrl}" alt="${post.prunedCaption || 'Instagram post'}">
