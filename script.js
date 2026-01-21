@@ -57,10 +57,19 @@ async function loadFeed() {
             // Use the large size image
             const imgUrl = post.sizes?.large?.mediaUrl || post.thumbnailUrl || post.mediaUrl;
 
+            // Extract date from caption if calendar emoji exists
+            let eventDate = '';
+            const dateMatch = (post.caption || '').match(/[🗓📅📆]\s*([^\n\r]+)/);
+            if (dateMatch && dateMatch[1]) {
+                eventDate = dateMatch[1].trim();
+            }
+
             item.innerHTML = `
                 <img src="${imgUrl}" alt="${post.prunedCaption || 'Instagram post'}">
                 ${post.isReel || post.mediaType === 'VIDEO' ? '<span class="play-icon">▶</span>' : ''}
+                ${eventDate ? `<div class="event-date">${eventDate}</div>` : ''}
             `;
+
 
             // Smart object-fit: use contain for tall images, cover for square/landscape
             const img = item.querySelector('img');
