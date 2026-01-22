@@ -58,10 +58,8 @@ body {
     display: block;
     text-decoration: none;
     backface-visibility: hidden;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 0 30px rgba(180, 50, 255, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    /* border-radius: 12px;  Moved to img to allow text outside */
+    /* overflow: hidden;  Allowed text to be outside */
 
     /* The reflection effect */
     -webkit-box-reflect: below 15px linear-gradient(transparent,
@@ -73,16 +71,27 @@ body {
     transition: box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
-.carousel-item:hover {
+/* Removed hover styles from container since they are now on img */
+/* .carousel-item:hover {
     box-shadow: 0 0 20px rgba(180, 50, 255, 0.6), 0 0 40px rgba(180, 50, 255, 0.4), 0 0 60px rgba(180, 50, 255, 0.2);
     border-color: rgba(180, 50, 255, 0.9);
-}
+} */
 
 .carousel-item img {
     width: 100%;
     height: 100%;
     object-fit: contain;
     pointer-events: none;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 30px rgba(180, 50, 255, 0.4);
+    transition: box-shadow 0.3s ease,
+        border-color 0.3s ease;
+}
+
+.carousel-item:hover img {
+    box-shadow: 0 0 20px rgba(180, 50, 255, 0.6), 0 0 40px rgba(180, 50, 255, 0.4), 0 0 60px rgba(180, 50, 255, 0.2);
+    border-color: rgba(180, 50, 255, 0.9);
 }
 
 /* Video/Reel indicator */
@@ -106,20 +115,23 @@ body {
 
 .event-date {
     position: absolute;
-    bottom: 0;
+    top: -30px;
     left: 0;
     width: 100%;
-    padding: 0.5rem;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0) 100%);
-    color: #39ff14;
-    /* Neon green */
+    padding: 0;
+    background: none;
+    color: #ffffff;
     font-family: 'Orbitron', sans-serif;
-    font-size: 0.9rem;
+    font-size: 1.1rem;
     font-weight: 500;
     text-align: center;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    text-shadow: 0 0 5px rgba(57, 255, 20, 0.5);
+    letter-spacing: 0.1em;
+    text-shadow:
+        0 0 5px #fff,
+        0 0 10px #fff,
+        0 0 20px #fff,
+        0 0 40px rgba(255, 255, 255, 0.5);
     z-index: 10;
 }
 
