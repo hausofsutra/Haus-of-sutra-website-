@@ -332,6 +332,7 @@ body {
 
 .modal-content {
     position: relative;
+    z-index: 1;
     max-width: 450px;
     width: 90%;
     background: rgba(10, 10, 15, 0.95);

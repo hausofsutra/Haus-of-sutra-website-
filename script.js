@@ -346,19 +346,22 @@ aboutMenuBtn.addEventListener('click', () => {
     hamburgerBtn.classList.remove('active');
 });
 
-// Open Subscribe modal
-subscribeMenuBtn.addEventListener('click', () => {
-    subscribeModal.classList.add('show');
-    mobileMenu.classList.remove('show');
-    hamburgerBtn.classList.remove('active');
-});
+// Open Subscribe modal (only if button exists)
+if (subscribeMenuBtn) {
+    subscribeMenuBtn.addEventListener('click', () => {
+        subscribeModal.classList.add('show');
+        mobileMenu.classList.remove('show');
+        hamburgerBtn.classList.remove('active');
+    });
+}
 
-// Close modals
 // Close modals (Event Delegation)
 document.addEventListener('click', (e) => {
     // Handle close buttons (X icon and backdrop)
     const closeBtn = e.target.closest('[data-close]');
     if (closeBtn) {
+        e.preventDefault();
+        e.stopPropagation();
         const modalId = closeBtn.dataset.close;
         const modal = document.getElementById(modalId);
         if (modal) {
@@ -368,7 +371,7 @@ document.addEventListener('click', (e) => {
             mobileMenu.classList.remove('show');
         }
     }
-});
+}, true);  // Use capture phase to ensure this runs before other handlers
 
 
 
