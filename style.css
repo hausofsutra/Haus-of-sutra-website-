@@ -692,9 +692,11 @@ body {
         height: 32px;
     }
 
-    .nav-btn.tickets-btn {
+    /* .nav-btn.tickets-btn {
         display: none;
-    }
+    } */
+
+    /* tickets-btn shown on mobile now */
 
     .mobile-menu {
         top: 65px;
@@ -734,6 +736,11 @@ body {
     .brand-avatar {
         width: 28px;
         height: 28px;
+    }
+
+    .nav-btn.tickets-btn {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8rem;
     }
 
     .hamburger {
