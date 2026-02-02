@@ -68,7 +68,7 @@
       "mediaType": "VIDEO",
       "isReel": true,
       "timestamp": "2026-02-01T00:29:11",
-      "likesCount": 83
+      "likesCount": 98
     },
     {
       "id": "DUL9bcyj4Lt",
@@ -85,7 +85,7 @@
       "mediaType": "IMAGE",
       "isReel": false,
       "timestamp": "2026-01-31T19:44:59",
-      "likesCount": 36
+      "likesCount": 45
     },
     {
       "id": "DULzSssjx2i",
@@ -102,7 +102,7 @@
       "mediaType": "IMAGE",
       "isReel": false,
       "timestamp": "2026-01-31T18:06:04",
-      "likesCount": 12
+      "likesCount": 13
     }
   ]
 }
