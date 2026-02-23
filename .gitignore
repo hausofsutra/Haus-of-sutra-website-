@@ -1,3 +1,5 @@
 .venv/
 __pycache__/
 .DS_Store
+instagram/.insta_session_user
+.last_run

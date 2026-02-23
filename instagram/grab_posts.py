@@ -59,6 +59,16 @@ def main():
         compress_json=False,
     )
 
+    # Try to load saved session for better reliability
+    SESSION_USER_FILE = SCRIPT_DIR / ".insta_session_user"
+    if SESSION_USER_FILE.exists():
+        session_username = SESSION_USER_FILE.read_text().strip()
+        try:
+            L.load_session_from_file(session_username)
+            print(f"Loaded saved session for @{session_username}")
+        except Exception:
+            print("Note: Could not load saved session, using anonymous access")
+
     print(f"Fetching profile: {PROFILE}")
     profile = instaloader.Profile.from_username(L.context, PROFILE)
     
