@@ -27,14 +27,21 @@ function Write-Warn    { param([string]$Msg) Write-Host "  $Msg" -ForegroundColo
 function Write-Err     { param([string]$Msg) Write-Host "  ERROR: $Msg" -ForegroundColor Red }
 
 # ---------------------------------------------------------------------------
-# Paths
+# Paths (RepoRoot may be updated after clone detection in step 3)
 # ---------------------------------------------------------------------------
+$RepoUrl         = "https://github.com/hausofsutra/Haus-of-sutra-website-.git"
+$RepoName        = "Haus-of-sutra-website-"
 $RepoRoot        = $PSScriptRoot
-$LastRunFile     = Join-Path $RepoRoot ".last_run"
-$VenvDir         = Join-Path $RepoRoot ".venv"
-$VenvActivate    = Join-Path $VenvDir "Scripts\Activate.ps1"
-$GrabScript      = Join-Path $RepoRoot "instagram\grab_posts.py"
-$SessionUserFile = Join-Path $RepoRoot "instagram\.insta_session_user"
+
+function Set-RepoPaths {
+    # Call this whenever $script:RepoRoot changes
+    $script:LastRunFile     = Join-Path $script:RepoRoot ".last_run"
+    $script:VenvDir         = Join-Path $script:RepoRoot ".venv"
+    $script:VenvActivate    = Join-Path $script:VenvDir "Scripts\Activate.ps1"
+    $script:GrabScript      = Join-Path $script:RepoRoot "instagram\grab_posts.py"
+    $script:SessionUserFile = Join-Path $script:RepoRoot "instagram\.insta_session_user"
+}
+Set-RepoPaths
 
 Write-Host ""
 Write-Host "  Haus of Sutra - Instagram Feed Sync" -ForegroundColor Magenta
@@ -42,34 +49,7 @@ Write-Host "  =====================================" -ForegroundColor Magenta
 Write-Host ""
 
 # ---------------------------------------------------------------------------
-# 1. 12-hour elapsed-time check
-#    Unattended: exit silently (Task Scheduler will try again later)
-#    Interactive: ask the user if they want to run anyway
-# ---------------------------------------------------------------------------
-if (Test-Path $LastRunFile) {
-    $lastRun = [datetime]::Parse(
-        (Get-Content $LastRunFile -Raw).Trim(),
-        $null,
-        [System.Globalization.DateTimeStyles]::RoundtripKind)
-    $elapsed = (Get-Date).ToUniversalTime() - $lastRun.ToUniversalTime()
-    $hoursLeft = 12 - $elapsed.TotalHours
-    if ($hoursLeft -gt 0) {
-        $hh = [int][Math]::Floor($hoursLeft)
-        $mm = [int][Math]::Floor(($hoursLeft - $hh) * 60)
-        Write-Warn "Already ran $([int]$elapsed.TotalHours)h $([int]$elapsed.Minutes)m ago. Next run in ${hh}h ${mm}m."
-        if ($Unattended) {
-            exit 0
-        }
-        $runAnyway = Read-Host "  Run anyway? (Y/N)"
-        if ($runAnyway -ne "Y" -and $runAnyway -ne "y") {
-            exit 0
-        }
-        Write-Host ""
-    }
-}
-
-# ---------------------------------------------------------------------------
-# 2. Check Python
+# 1. Check Python
 # ---------------------------------------------------------------------------
 Write-Status "Checking Python..."
 $pythonCmd = $null
@@ -111,7 +91,7 @@ if (-not $pythonCmd) {
 }
 
 # ---------------------------------------------------------------------------
-# 3. Check Git
+# 2. Check Git
 # ---------------------------------------------------------------------------
 Write-Status "Checking Git..."
 try {
@@ -143,18 +123,118 @@ try {
 }
 
 # ---------------------------------------------------------------------------
-# 4. Verify we're inside the git repo
+# 3. Ensure we're in a proper git repo
+#    Handles three scenarios:
+#      A) Script is already inside a git repo (normal use after first setup)
+#      B) User downloaded and extracted the ZIP from GitHub (files exist, no .git)
+#      C) Script is sitting somewhere with no repo at all (clone from scratch)
 # ---------------------------------------------------------------------------
-Write-Status "Verifying repo..."
+Write-Status "Looking for repo..."
 $insideRepo = & git -C $RepoRoot rev-parse --is-inside-work-tree 2>&1
+
 if ($insideRepo -ne "true") {
-    Write-Err "Not inside a git repository: $RepoRoot"
-    exit 1
+    # Check if this looks like an extracted ZIP (key files exist but no .git/)
+    $hasRepoFiles = (Test-Path (Join-Path $RepoRoot "index.html")) -and
+                    (Test-Path (Join-Path $RepoRoot "instagram\grab_posts.py"))
+
+    if ($hasRepoFiles) {
+        # Scenario B: extracted ZIP — initialize git and connect to remote
+        Write-Warn "This looks like an extracted ZIP download (no .git folder)."
+        Write-Status "Setting up git so we can push changes..."
+
+        & git -C $RepoRoot init
+        if ($LASTEXITCODE -ne 0) { Write-Err "git init failed."; exit 1 }
+
+        & git -C $RepoRoot remote add origin $RepoUrl 2>&1 | Out-Null
+        & git -C $RepoRoot fetch origin main
+        if ($LASTEXITCODE -ne 0) {
+            Write-Err "Could not fetch from remote. Check your internet connection."
+            exit 1
+        }
+
+        # Reset to track remote main — keeps local files, sets up proper history
+        & git -C $RepoRoot reset origin/main 2>&1 | Out-Null
+        & git -C $RepoRoot branch --set-upstream-to=origin/main main 2>&1 | Out-Null
+
+        Write-Success "Git initialized and connected to GitHub."
+    } else {
+        # Scenario C: no repo files here — check for or clone a subdirectory
+        $subDir = Join-Path $PSScriptRoot $RepoName
+        if (Test-Path (Join-Path $subDir ".git")) {
+            Write-Status "Found repo at: $subDir"
+            $RepoRoot = $subDir
+            Set-RepoPaths
+        } else {
+            Write-Warn "Repo not found. It will be cloned to: $subDir"
+            if ($Unattended) {
+                Write-Err "Cannot clone unattended on first run. Run the script manually first."
+                exit 1
+            }
+            $doClone = Read-Host "  Clone the repo now? (Y/N)"
+            if ($doClone -eq "Y" -or $doClone -eq "y") {
+                Write-Status "Cloning $RepoUrl ..."
+                & git clone $RepoUrl $subDir
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Err "git clone failed."
+                    exit 1
+                }
+                Write-Success "Cloned to: $subDir"
+                $RepoRoot = $subDir
+                Set-RepoPaths
+            } else {
+                Write-Warn "Cannot continue without the repo."
+                exit 1
+            }
+        }
+    }
 }
-Write-Success "Repo OK"
+Write-Success "Repo OK: $RepoRoot"
 
 # ---------------------------------------------------------------------------
-# 5. Virtual environment
+# 4. Pull latest repo changes (keeps script and grab_posts.py up to date)
+# ---------------------------------------------------------------------------
+Write-Status "Checking for repo updates..."
+$pullSelfOutput = & git -C $RepoRoot pull --rebase origin main 2>&1
+$pullSelfExit = $LASTEXITCODE
+if ($pullSelfExit -ne 0) {
+    # Non-fatal — warn but continue with current version
+    Write-Warn "Could not pull latest updates (continuing with current version)."
+} else {
+    $pullSelfStr = $pullSelfOutput | Out-String
+    if ($pullSelfStr -match "Already up to date") {
+        Write-Success "Already up to date."
+    } else {
+        Write-Success "Updated to latest version. Changes take effect on next run."
+    }
+}
+
+# ---------------------------------------------------------------------------
+# 5. 12-hour elapsed-time check (now that we know where .last_run is)
+# ---------------------------------------------------------------------------
+if (Test-Path $LastRunFile) {
+    $lastRun = [datetime]::Parse(
+        (Get-Content $LastRunFile -Raw).Trim(),
+        $null,
+        [System.Globalization.DateTimeStyles]::RoundtripKind)
+    $elapsed = (Get-Date).ToUniversalTime() - $lastRun.ToUniversalTime()
+    $hoursLeft = 12 - $elapsed.TotalHours
+    if ($hoursLeft -gt 0) {
+        $hh = [int][Math]::Floor($hoursLeft)
+        $mm = [int][Math]::Floor(($hoursLeft - $hh) * 60)
+        Write-Warn "Already ran $([int]$elapsed.TotalHours)h $([int]$elapsed.Minutes)m ago. Next run in ${hh}h ${mm}m."
+        if ($Unattended) {
+            exit 0
+        }
+        $runAnyway = Read-Host "  Run anyway? (Y/N)"
+        if ($runAnyway -ne "Y" -and $runAnyway -ne "y") {
+            exit 0
+        }
+        Write-Host ""
+    }
+}
+
+# ---------------------------------------------------------------------------
+# 6. Virtual environment
 # ---------------------------------------------------------------------------
 Write-Status "Setting up Python virtual environment..."
 if (-not (Test-Path $VenvDir)) {
@@ -179,7 +259,7 @@ if ($LASTEXITCODE -ne 0) {
 Write-Success "Dependencies ready"
 
 # ---------------------------------------------------------------------------
-# 6. Instagram auth via Windows Credential Manager
+# 7. Instagram auth via Windows Credential Manager
 # ---------------------------------------------------------------------------
 Write-Status "Checking Instagram credentials..."
 
@@ -264,7 +344,7 @@ except Exception as e:
 }
 
 # ---------------------------------------------------------------------------
-# 7. Run grab_posts.py
+# 8. Run grab_posts.py
 # ---------------------------------------------------------------------------
 Write-Host ""
 Write-Status "Running grab_posts.py..."
@@ -275,7 +355,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # ---------------------------------------------------------------------------
-# 8. Check for git changes
+# 9. Check for git changes
 # ---------------------------------------------------------------------------
 Write-Host ""
 Write-Status "Checking for changes..."
@@ -289,7 +369,7 @@ if (-not $changes) {
     Write-Success "Changes detected - committing..."
 
     # -----------------------------------------------------------------------
-    # 9. Ensure git identity is configured
+    # 10. Ensure git identity is configured
     # -----------------------------------------------------------------------
     $gitName  = & git -C $RepoRoot config user.name  2>&1
     $gitEmail = & git -C $RepoRoot config user.email 2>&1
@@ -311,7 +391,7 @@ if (-not $changes) {
     }
 
     # -----------------------------------------------------------------------
-    # 10. Commit, rebase on remote, push
+    # 11. Commit, rebase on remote, push
     # -----------------------------------------------------------------------
     & git -C $RepoRoot add "instagram/"
     & git -C $RepoRoot commit -m "chore: sync instagram feed"
@@ -367,7 +447,7 @@ if (-not $changes) {
     Write-Success "Pushed to origin main."
 
     # -----------------------------------------------------------------------
-    # 11. Update last-run timestamp
+    # 12. Update last-run timestamp
     # -----------------------------------------------------------------------
     Set-Content -Path $LastRunFile -Value (Get-Date).ToUniversalTime().ToString("o")
 
@@ -377,7 +457,7 @@ if (-not $changes) {
 }
 
 # ---------------------------------------------------------------------------
-# 12. Scheduler — offer to set up if no scheduled task exists yet
+# 13. Scheduler — offer to set up if no scheduled task exists yet
 # ---------------------------------------------------------------------------
 $taskName = "HausOfSutra-InstagramSync"
 $existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
