@@ -1,10 +1,10 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Haus of Sutra - Instagram Feed Auto-Update Script
 
 .DESCRIPTION
-    Just run .\update-site.ps1 — the script walks you through everything:
+    Just run .\update-site.ps1 -- the script walks you through everything:
     dependency checks, Instagram login, syncing posts, pushing to GitHub,
     and setting up automatic 12-hour scheduling.
 #>
@@ -34,6 +34,82 @@ function Find-Winget {
                  -ErrorAction SilentlyContinue | Select-Object -Last 1
     if ($found) { return $found.Path }
     return $null
+}
+
+function Install-PythonDirect {
+    Write-Status "winget unavailable -- downloading Python installer from python.org..."
+    try {
+        $page = Invoke-WebRequest -Uri "https://www.python.org/downloads/windows/" `
+                    -UseBasicParsing -ErrorAction Stop
+        $match = [regex]::Match($page.Content,
+                     'href="(https://www\.python\.org/ftp/python/[\d.]+/python-[\d.]+-amd64\.exe)"')
+        if (-not $match.Success) {
+            Write-Err "Could not parse Python installer URL from python.org."
+            return $false
+        }
+        $url = $match.Groups[1].Value
+        $installer = "$env:TEMP\python-installer.exe"
+        Write-Status "Downloading: $url"
+        Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing -ErrorAction Stop
+        $sizeMB = [math]::Round((Get-Item $installer).Length / 1MB, 1)
+        Write-Status "Downloaded: ${sizeMB} MB"
+        if ($sizeMB -lt 1) {
+            Write-Err "Download too small (${sizeMB} MB) -- likely a 404 error page, not a real installer."
+            Remove-Item $installer -Force -ErrorAction SilentlyContinue
+            return $false
+        }
+        Write-Status "Running installer (silent)..."
+        # InstallAllUsers=0 = per-user install (no admin elevation needed).
+        # Use Start-Process -Wait so PowerShell waits for the full installer tree,
+        # not just the bootstrapper shim that spawns a child MSI and exits immediately.
+        $proc = Start-Process -FilePath $installer `
+            -ArgumentList "/quiet InstallAllUsers=0 PrependPath=1 Include_test=0" `
+            -Wait -PassThru
+        $exitCode = $proc.ExitCode
+        Remove-Item $installer -Force -ErrorAction SilentlyContinue
+
+        # Poll for up to 60 s -- the MSI may still be running even after -Wait returns.
+        Write-Status "Waiting for Python to appear in PATH..."
+        for ($i = 0; $i -lt 12; $i++) {
+            $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" +
+                        [System.Environment]::GetEnvironmentVariable("Path","User")
+            if (Get-Command python -ErrorAction SilentlyContinue) { return $true }
+            Start-Sleep -Seconds 5
+        }
+        Write-Err "Python installer exited (code: $exitCode) but python is not in PATH after 60 s."
+        return $false
+    } catch {
+        Write-Err "Direct Python download failed: $_"
+        return $false
+    }
+}
+
+function Install-GitDirect {
+    Write-Status "winget unavailable -- downloading Git installer from GitHub..."
+    try {
+        $release = Invoke-RestMethod `
+                       -Uri "https://api.github.com/repos/git-for-windows/git/releases/latest" `
+                       -ErrorAction Stop
+        $asset = $release.assets |
+                     Where-Object { $_.name -match "Git-[\d\.]+-64-bit\.exe" } |
+                     Select-Object -First 1
+        if (-not $asset) {
+            Write-Err "Could not find Git 64-bit installer in latest release."
+            return $false
+        }
+        $installer = "$env:TEMP\git-installer.exe"
+        Write-Status "Downloading: $($asset.browser_download_url)"
+        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installer `
+            -UseBasicParsing -ErrorAction Stop
+        Write-Status "Running installer (silent)..."
+        & $installer /VERYSILENT /NORESTART /NOCANCEL /SP- `
+                     /COMPONENTS="icons,ext\reg\shellhere,assoc,assoc_sh"
+        Remove-Item $installer -Force -ErrorAction SilentlyContinue
+        return ($LASTEXITCODE -eq 0)
+    } catch {
+        Write-Err "Direct Git download failed: $_"
+        return $false
+    }
 }
 
 function Invoke-SchedulerSetup {
@@ -123,25 +199,25 @@ if (-not $pythonCmd) {
         Write-Err "Cannot install Python unattended. Install manually and re-run."
         exit 1
     }
-    $install = Read-Host "  Install Python via winget? (Y/N)"
+    $install = Read-Host "  Install Python automatically? (Y/N)"
     if ($install -eq "Y" -or $install -eq "y") {
         $wingetExe = Find-Winget
+        $ok = $false
         if ($wingetExe) {
-            Write-Status "Installing Python..."
+            Write-Status "Installing Python via winget..."
             & $wingetExe install Python.Python.3 --accept-package-agreements --accept-source-agreements
-            if ($LASTEXITCODE -ne 0) {
-                Write-Err "winget failed to install Python (exit $LASTEXITCODE)."
-                Write-Warn "Download Python from: https://www.python.org/downloads/"
-                exit 1
-            }
-            $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" +
-                        [System.Environment]::GetEnvironmentVariable("Path","User")
-            $pythonCmd = "python"
-        } else {
-            Write-Err "winget not available."
-            Write-Warn "Download Python from: https://www.python.org/downloads/"
+            $ok = ($LASTEXITCODE -eq 0)
+            if (-not $ok) { Write-Warn "winget install failed (exit $LASTEXITCODE). Trying direct download..." }
+        }
+        if (-not $ok) { $ok = Install-PythonDirect }
+        if (-not $ok) {
+            Write-Err "Could not install Python automatically."
+            Write-Warn "Please install manually: https://www.python.org/downloads/"
             exit 1
         }
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" +
+                    [System.Environment]::GetEnvironmentVariable("Path","User")
+        $pythonCmd = "python"
     } else {
         Write-Warn "Python is required. Download from: https://www.python.org/downloads/"
         exit 1
@@ -161,24 +237,24 @@ try {
         Write-Err "Cannot install Git unattended. Install manually and re-run."
         exit 1
     }
-    $install = Read-Host "  Install Git via winget? (Y/N)"
+    $install = Read-Host "  Install Git automatically? (Y/N)"
     if ($install -eq "Y" -or $install -eq "y") {
         $wingetExe = Find-Winget
+        $ok = $false
         if ($wingetExe) {
-            Write-Status "Installing Git..."
+            Write-Status "Installing Git via winget..."
             & $wingetExe install Git.Git --accept-package-agreements --accept-source-agreements
-            if ($LASTEXITCODE -ne 0) {
-                Write-Err "winget failed to install Git (exit $LASTEXITCODE)."
-                Write-Warn "Download Git from: https://git-scm.com/download/win"
-                exit 1
-            }
-            $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" +
-                        [System.Environment]::GetEnvironmentVariable("Path","User")
-        } else {
-            Write-Err "winget not available."
-            Write-Warn "Download Git from: https://git-scm.com/download/win"
+            $ok = ($LASTEXITCODE -eq 0)
+            if (-not $ok) { Write-Warn "winget install failed (exit $LASTEXITCODE). Trying direct download..." }
+        }
+        if (-not $ok) { $ok = Install-GitDirect }
+        if (-not $ok) {
+            Write-Err "Could not install Git automatically."
+            Write-Warn "Please install manually: https://git-scm.com/download/win"
             exit 1
         }
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" +
+                    [System.Environment]::GetEnvironmentVariable("Path","User")
     } else {
         Write-Warn "Git is required. Download from: https://git-scm.com/download/win"
         exit 1
@@ -201,7 +277,7 @@ if ($insideRepo -ne "true") {
                     (Test-Path (Join-Path $RepoRoot "instagram\grab_posts.py"))
 
     if ($hasRepoFiles) {
-        # Scenario B: extracted ZIP — initialize git and connect to remote
+        # Scenario B: extracted ZIP -- initialize git and connect to remote
         Write-Warn "This looks like an extracted ZIP download (no .git folder)."
         Write-Status "Setting up git so we can push changes..."
 
@@ -215,13 +291,13 @@ if ($insideRepo -ne "true") {
             exit 1
         }
 
-        # Reset to track remote main — keeps local files, sets up proper history
+        # Reset to track remote main -- keeps local files, sets up proper history
         & git -C $RepoRoot reset origin/main 2>&1 | Out-Null
         & git -C $RepoRoot branch --set-upstream-to=origin/main main 2>&1 | Out-Null
 
         Write-Success "Git initialized and connected to GitHub."
     } else {
-        # Scenario C: no repo files here — check for or clone a subdirectory
+        # Scenario C: no repo files here -- check for or clone a subdirectory
         $subDir = Join-Path $PSScriptRoot $RepoName
         if (Test-Path (Join-Path $subDir ".git")) {
             Write-Status "Found repo at: $subDir"
@@ -266,7 +342,7 @@ $pullSelfExit = $LASTEXITCODE
 
 $ErrorActionPreference = $oldEap
 if ($pullSelfExit -ne 0) {
-    # Non-fatal — warn but continue with current version
+    # Non-fatal -- warn but continue with current version
     Write-Warn "Could not pull latest updates (continuing with current version)."
 } else {
     $pullSelfStr = $pullSelfOutput | Out-String
@@ -340,7 +416,7 @@ if (Test-Path $patchScript) {
 Write-Success "Dependencies ready"
 
 # ---------------------------------------------------------------------------
-# 7. Instagram auth — check for saved login, then let user choose
+# 7. Instagram auth -- check for saved login, then let user choose
 # ---------------------------------------------------------------------------
 Write-Status "Checking Instagram credentials..."
 
@@ -601,7 +677,7 @@ if (-not $changes) {
 }
 
 # ---------------------------------------------------------------------------
-# 13. Scheduler — offer to set up if no scheduled task exists yet
+# 13. Scheduler -- offer to set up if no scheduled task exists yet
 # ---------------------------------------------------------------------------
 Invoke-SchedulerSetup
 

@@ -18,6 +18,6 @@
   </MappedFolders>
 
   <LogonCommand>
-    <Command>powershell.exe -ExecutionPolicy Bypass -File "C:\host-repo\tests\sandbox\_bootstrap.ps1" -Scenario clone</Command>
+    <Command>cmd.exe /c start powershell.exe -NoExit -ExecutionPolicy Bypass -File "C:\host-repo\tests\sandbox\_bootstrap.ps1" -Scenario clone</Command>
   </LogonCommand>
 </Configuration>
