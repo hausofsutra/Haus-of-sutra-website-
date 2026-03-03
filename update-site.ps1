@@ -26,6 +26,16 @@ function Write-Success { param([string]$Msg) Write-Host "  $Msg" -ForegroundColo
 function Write-Warn    { param([string]$Msg) Write-Host "  $Msg" -ForegroundColor Yellow }
 function Write-Err     { param([string]$Msg) Write-Host "  ERROR: $Msg" -ForegroundColor Red }
 
+function Find-Winget {
+    # Try PATH first, then the WindowsApps location used by Windows Sandbox / fresh installs
+    $cmd = Get-Command winget -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    $found = Resolve-Path "C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_*\winget.exe" `
+                 -ErrorAction SilentlyContinue | Select-Object -Last 1
+    if ($found) { return $found.Path }
+    return $null
+}
+
 function Invoke-SchedulerSetup {
     $existingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
     if ($existingTask -or $Unattended) { return }
@@ -115,10 +125,15 @@ if (-not $pythonCmd) {
     }
     $install = Read-Host "  Install Python via winget? (Y/N)"
     if ($install -eq "Y" -or $install -eq "y") {
-        $winget = Get-Command winget -ErrorAction SilentlyContinue
-        if ($winget) {
+        $wingetExe = Find-Winget
+        if ($wingetExe) {
             Write-Status "Installing Python..."
-            winget install Python.Python.3
+            & $wingetExe install Python.Python.3 --accept-package-agreements --accept-source-agreements
+            if ($LASTEXITCODE -ne 0) {
+                Write-Err "winget failed to install Python (exit $LASTEXITCODE)."
+                Write-Warn "Download Python from: https://www.python.org/downloads/"
+                exit 1
+            }
             $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" +
                         [System.Environment]::GetEnvironmentVariable("Path","User")
             $pythonCmd = "python"
@@ -148,10 +163,15 @@ try {
     }
     $install = Read-Host "  Install Git via winget? (Y/N)"
     if ($install -eq "Y" -or $install -eq "y") {
-        $winget = Get-Command winget -ErrorAction SilentlyContinue
-        if ($winget) {
+        $wingetExe = Find-Winget
+        if ($wingetExe) {
             Write-Status "Installing Git..."
-            winget install Git.Git
+            & $wingetExe install Git.Git --accept-package-agreements --accept-source-agreements
+            if ($LASTEXITCODE -ne 0) {
+                Write-Err "winget failed to install Git (exit $LASTEXITCODE)."
+                Write-Warn "Download Git from: https://git-scm.com/download/win"
+                exit 1
+            }
             $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" +
                         [System.Environment]::GetEnvironmentVariable("Path","User")
         } else {
