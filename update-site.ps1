@@ -194,8 +194,14 @@ Write-Success "Repo OK: $RepoRoot"
 # 4. Pull latest repo changes (keeps script and grab_posts.py up to date)
 # ---------------------------------------------------------------------------
 Write-Status "Checking for repo updates..."
+
+$oldEap = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+
 $pullSelfOutput = & git -C $RepoRoot pull --rebase origin main 2>&1
 $pullSelfExit = $LASTEXITCODE
+
+$ErrorActionPreference = $oldEap
 if ($pullSelfExit -ne 0) {
     # Non-fatal — warn but continue with current version
     Write-Warn "Could not pull latest updates (continuing with current version)."
@@ -250,16 +256,27 @@ if (-not (Test-Path $VenvActivate)) {
     exit 1
 }
 & $VenvActivate
+$oldEap = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
 Write-Status "Checking dependencies..."
-& pip install --quiet instaloader requests 2>&1 | Out-Null
+# TODO: revert to 'instaloader' once PR #2652 is merged (https://github.com/instaloader/instaloader/pull/2652)
+# Installing from fork branch that fixes 429 errors by migrating from deprecated web_profile_info to GraphQL
+& pip install --quiet requests 2>&1 | Out-Null
+& pip install --quiet --force-reinstall --no-deps git+https://github.com/cxyfer/instaloader.git@fix/profile-graphql-v4.16 2>&1 | Out-Null
+$ErrorActionPreference = $oldEap
 if ($LASTEXITCODE -ne 0) {
     Write-Err "Failed to install Python dependencies."
     exit 1
 }
+# Apply post-install patches (GraphQL-first ordering, 401 rate-limit backoff)
+$patchScript = Join-Path $RepoRoot "instagram\patch_instaloader.py"
+if (Test-Path $patchScript) {
+    & $pythonCmd $patchScript
+}
 Write-Success "Dependencies ready"
 
 # ---------------------------------------------------------------------------
-# 7. Instagram auth via Windows Credential Manager
+# 7. Instagram auth — check for saved login, then let user choose
 # ---------------------------------------------------------------------------
 Write-Status "Checking Instagram credentials..."
 
@@ -276,31 +293,67 @@ try {
     if ($allCreds -and $allCreds.Count -gt 0) {
         $storedCred = $allCreds[0]
         $storedCred.RetrievePassword()
-        Write-Success "Found saved credentials for @$($storedCred.UserName)"
-        Set-Content -Path $SessionUserFile -Value $storedCred.UserName -NoNewline
     }
 } catch {
     $vault = $null
     $storedCred = $null
 }
 
-if (-not $storedCred) {
-    Write-Warn "No saved Instagram credentials found."
-    if ($Unattended) {
-        Write-Warn "Running unattended - skipping Instagram login."
-        $doLogin = "N"
-    } else {
-        $doLogin = Read-Host "  Log in to Instagram for better reliability? (Y/N)"
-    }
-    if ($doLogin -eq "Y" -or $doLogin -eq "y") {
-        $igUser = Read-Host "  Instagram username"
-        $igPassSS = Read-Host "  Instagram password" -AsSecureString
-        $igPassBSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($igPassSS)
-        $igPass = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($igPassBSTR)
-        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($igPassBSTR)
+$hasSessionFile = Test-Path $SessionUserFile
+$savedUser = if ($storedCred) { $storedCred.UserName }
+             elseif ($hasSessionFile) { (Get-Content $SessionUserFile -Raw).Trim() }
+             else { $null }
+$hasSavedLogin = $null -ne $savedUser
 
-        Write-Status "Logging in and saving instaloader session..."
-        $loginScript = @"
+$doNewLogin  = $false
+$useAnonymous = $false
+
+if ($Unattended) {
+    if ($hasSavedLogin) {
+        Write-Status "Using saved login for @$savedUser (unattended)."
+        if ($storedCred) { Set-Content -Path $SessionUserFile -Value $savedUser -NoNewline }
+    } else {
+        Write-Warn "No saved credentials - using anonymous access (unattended)."
+        $useAnonymous = $true
+    }
+} elseif ($hasSavedLogin) {
+    Write-Success "Found saved login: @$savedUser"
+    Write-Host ""
+    Write-Host "  [1] Use saved login (@$savedUser)  (recommended)" -ForegroundColor Cyan
+    Write-Host "  [2] Log in with different credentials" -ForegroundColor Cyan
+    Write-Host "  [3] Run anonymously" -ForegroundColor Cyan
+    Write-Host ""
+    $authChoice = Read-Host "  Choose (1/2/3)"
+    switch ($authChoice) {
+        "2" { $doNewLogin = $true }
+        "3" { $useAnonymous = $true; Write-Warn "Using anonymous access (may be rate-limited)." }
+        default {
+            Write-Success "Using saved login for @$savedUser"
+            if ($storedCred) { Set-Content -Path $SessionUserFile -Value $savedUser -NoNewline }
+        }
+    }
+} else {
+    Write-Warn "No saved Instagram credentials found."
+    Write-Host ""
+    Write-Host "  [1] Log in to Instagram  (recommended - more reliable)" -ForegroundColor Cyan
+    Write-Host "  [2] Run anonymously  (may be rate-limited)" -ForegroundColor Cyan
+    Write-Host ""
+    $authChoice = Read-Host "  Choose (1/2)"
+    switch ($authChoice) {
+        "2" { $useAnonymous = $true; Write-Warn "Using anonymous access (may be rate-limited)." }
+        default { $doNewLogin = $true }
+    }
+}
+
+if ($doNewLogin) {
+    $igUser = Read-Host "  Instagram username"
+    $igPassSS = Read-Host "  Instagram password" -AsSecureString
+    $igPassBSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($igPassSS)
+    $igPass = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($igPassBSTR)
+    [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($igPassBSTR)
+
+    Write-Status "Logging in and saving instaloader session..."
+    $loginScript = @"
 import instaloader, sys
 L = instaloader.Instaloader()
 try:
@@ -311,36 +364,34 @@ except Exception as e:
     print(f'Login failed: {e}', file=sys.stderr)
     sys.exit(1)
 "@
-        $loginResult = & $pythonCmd -c $loginScript $igUser $igPass 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            Write-Err "Instagram login failed: $loginResult"
-            Write-Warn "Continuing with anonymous access."
-        } else {
-            Write-Success $loginResult
-
-            if ($vault) {
-                try {
-                    try { $vault.Remove($vault.Retrieve($credentialTarget, $igUser)) } catch { }
-                    $newCred = [Windows.Security.Credentials.PasswordCredential]::new(
-                        $credentialTarget, $igUser, $igPass)
-                    $vault.Add($newCred)
-                    Write-Success "Credentials saved to Windows Credential Manager."
-                } catch {
-                    Write-Warn "Could not save to Credential Manager: $_"
-                }
-            } else {
-                Write-Warn "Windows Credential Manager not available. Credentials not persisted."
-                Write-Warn "The instaloader session file will still be used for this machine."
-            }
-
-            Set-Content -Path $SessionUserFile -Value $igUser -NoNewline
-            Write-Success "Session user saved."
-        }
-        $igPass = $null
-        [System.GC]::Collect()
+    $loginResult = & $pythonCmd -c $loginScript $igUser $igPass 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "Instagram login failed: $loginResult"
+        Write-Warn "Continuing with anonymous access."
+        $useAnonymous = $true
     } else {
-        Write-Warn "Skipping login - using anonymous access (may be rate-limited)."
+        Write-Success $loginResult
+
+        if ($vault) {
+            try {
+                try { $vault.Remove($vault.Retrieve($credentialTarget, $igUser)) } catch { }
+                $newCred = [Windows.Security.Credentials.PasswordCredential]::new(
+                    $credentialTarget, $igUser, $igPass)
+                $vault.Add($newCred)
+                Write-Success "Credentials saved to Windows Credential Manager."
+            } catch {
+                Write-Warn "Could not save to Credential Manager: $_"
+            }
+        } else {
+            Write-Warn "Windows Credential Manager not available. Credentials not persisted."
+            Write-Warn "The instaloader session file will still be used for this machine."
+        }
+
+        Set-Content -Path $SessionUserFile -Value $igUser -NoNewline
+        Write-Success "Session user saved."
     }
+    $igPass = $null
+    [System.GC]::Collect()
 }
 
 # ---------------------------------------------------------------------------
@@ -348,9 +399,26 @@ except Exception as e:
 # ---------------------------------------------------------------------------
 Write-Host ""
 Write-Status "Running grab_posts.py..."
+
+# If the user chose anonymous, temporarily hide the session file so grab_posts.py
+# doesn't load it. Restore it afterwards regardless of outcome.
+$sessionFileHidden = $false
+if ($useAnonymous -and (Test-Path $SessionUserFile)) {
+    if (Test-Path "$SessionUserFile.bak") { Remove-Item "$SessionUserFile.bak" -Force }
+    Move-Item -Path $SessionUserFile -Destination "$SessionUserFile.bak" -Force
+    $sessionFileHidden = $true
+}
+
 & $pythonCmd $GrabScript
-if ($LASTEXITCODE -ne 0) {
-    Write-Err "grab_posts.py exited with code $LASTEXITCODE"
+$grabExit = $LASTEXITCODE
+
+if ($sessionFileHidden -and (Test-Path "$SessionUserFile.bak")) {
+    if (Test-Path $SessionUserFile) { Remove-Item $SessionUserFile -Force }
+    Move-Item -Path "$SessionUserFile.bak" -Destination $SessionUserFile -Force
+}
+
+if ($grabExit -ne 0) {
+    Write-Err "grab_posts.py exited with code $grabExit"
     exit 1
 }
 
@@ -400,9 +468,16 @@ if (-not $changes) {
         exit 1
     }
 
-    Write-Status "Pulling latest from origin main..."
+    Write-Status "Checking for repo updates..."
+
+    $oldEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+
     $pullOutput = & git -C $RepoRoot pull --rebase origin main 2>&1
     $pullExit = $LASTEXITCODE
+
+    $ErrorActionPreference = $oldEap
+
     if ($pullExit -ne 0) {
         $pullStr = $pullOutput | Out-String
         if ($pullStr -match "authentication" -or $pullStr -match "credential" -or
@@ -424,8 +499,13 @@ if (-not $changes) {
     Write-Success "Up to date with remote."
 
     Write-Status "Pushing to origin main..."
+    $oldEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+
     $pushOutput = & git -C $RepoRoot push origin main 2>&1
     $pushExit = $LASTEXITCODE
+
+    $ErrorActionPreference = $oldEap
     if ($pushExit -ne 0) {
         $pushStr = $pushOutput | Out-String
         if ($pushStr -match "authentication" -or $pushStr -match "credential" -or
