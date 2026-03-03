@@ -1,0 +1,23 @@
+<Configuration>
+  <!--
+    SCENARIO: ZIP Extract
+    Tests: the "extracted ZIP" code path (Scenario B in update-site.ps1).
+    The bootstrap copies the repo WITHOUT .git, so the script detects repo files
+    but no git history and runs: git init + remote add + fetch + reset.
+    Note: Python and Git are not installed - winget will be offered first.
+  -->
+  <Networking>Enable</Networking>
+
+  <MappedFolders>
+    <!-- HostFolder is relative to this .wsb file: tests\sandbox\ -> up two levels = repo root -->
+    <MappedFolder>
+      <HostFolder>..\..\</HostFolder>
+      <SandboxFolder>C:\host-repo</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+
+  <LogonCommand>
+    <Command>powershell.exe -ExecutionPolicy Bypass -File "C:\host-repo\tests\sandbox\_bootstrap.ps1" -Scenario zip</Command>
+  </LogonCommand>
+</Configuration>

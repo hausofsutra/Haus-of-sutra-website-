@@ -1,0 +1,23 @@
+<Configuration>
+  <!--
+    SCENARIO: Fresh Clone
+    Tests: the "no repo at all" code path (Scenario C in update-site.ps1).
+    The bootstrap places only update-site.ps1 in an empty folder with no index.html
+    or instagram/ directory, so the script offers to clone the repo from GitHub.
+    Note: Python and Git are not installed - winget will be offered first.
+  -->
+  <Networking>Enable</Networking>
+
+  <MappedFolders>
+    <!-- HostFolder is relative to this .wsb file: tests\sandbox\ -> up two levels = repo root -->
+    <MappedFolder>
+      <HostFolder>..\..\</HostFolder>
+      <SandboxFolder>C:\host-repo</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+
+  <LogonCommand>
+    <Command>powershell.exe -ExecutionPolicy Bypass -File "C:\host-repo\tests\sandbox\_bootstrap.ps1" -Scenario clone</Command>
+  </LogonCommand>
+</Configuration>
