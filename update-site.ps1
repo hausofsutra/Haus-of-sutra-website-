@@ -26,12 +26,55 @@ function Write-Success { param([string]$Msg) Write-Host "  $Msg" -ForegroundColo
 function Write-Warn    { param([string]$Msg) Write-Host "  $Msg" -ForegroundColor Yellow }
 function Write-Err     { param([string]$Msg) Write-Host "  ERROR: $Msg" -ForegroundColor Red }
 
+function Invoke-SchedulerSetup {
+    $existingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    if ($existingTask -or $Unattended) { return }
+
+    Write-Host ""
+    $scheduleIt = Read-Host "  Would you like this script to run automatically every 12 hours? (Y/N)"
+    if ($scheduleIt -ne "Y" -and $scheduleIt -ne "y") {
+        Write-Warn "No problem. You can always re-run this script manually."
+        return
+    }
+
+    $scriptPath = $PSCommandPath
+    $action = New-ScheduledTaskAction `
+        -Execute "powershell.exe" `
+        -Argument "-NonInteractive -ExecutionPolicy Bypass -File `"$scriptPath`" -Unattended"
+
+    $trigger = New-ScheduledTaskTrigger -Once `
+        -At (Get-Date) `
+        -RepetitionInterval (New-TimeSpan -Hours 12) `
+        -RepetitionDuration (New-TimeSpan -Days 9999)
+
+    $settings = New-ScheduledTaskSettingsSet `
+        -ExecutionTimeLimit (New-TimeSpan -Hours 1) `
+        -StartWhenAvailable
+
+    $principal = New-ScheduledTaskPrincipal `
+        -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) `
+        -LogonType Interactive `
+        -RunLevel Limited
+
+    Register-ScheduledTask `
+        -TaskName $TaskName `
+        -Action $action `
+        -Trigger $trigger `
+        -Settings $settings `
+        -Principal $principal `
+        -Description "Auto-syncs Haus of Sutra Instagram feed every 12 hours." | Out-Null
+
+    Write-Success "Scheduled task '$TaskName' registered."
+    Write-Status "It will run now and repeat every 12 hours."
+}
+
 # ---------------------------------------------------------------------------
 # Paths (RepoRoot may be updated after clone detection in step 3)
 # ---------------------------------------------------------------------------
 $RepoUrl         = "https://github.com/hausofsutra/Haus-of-sutra-website-.git"
 $RepoName        = "Haus-of-sutra-website-"
 $RepoRoot        = $PSScriptRoot
+$TaskName        = "HausOfSutra-InstagramSync"
 
 function Set-RepoPaths {
     # Call this whenever $script:RepoRoot changes
@@ -198,7 +241,7 @@ Write-Status "Checking for repo updates..."
 $oldEap = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
 
-$pullSelfOutput = & git -C $RepoRoot pull --rebase origin main 2>&1
+$pullSelfOutput = & git -C $RepoRoot pull --rebase --autostash origin main 2>&1
 $pullSelfExit = $LASTEXITCODE
 
 $ErrorActionPreference = $oldEap
@@ -233,6 +276,7 @@ if (Test-Path $LastRunFile) {
         }
         $runAnyway = Read-Host "  Run anyway? (Y/N)"
         if ($runAnyway -ne "Y" -and $runAnyway -ne "y") {
+            Invoke-SchedulerSetup
             exit 0
         }
         Write-Host ""
@@ -473,7 +517,7 @@ if (-not $changes) {
     $oldEap = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
 
-    $pullOutput = & git -C $RepoRoot pull --rebase origin main 2>&1
+    $pullOutput = & git -C $RepoRoot pull --rebase --autostash origin main 2>&1
     $pullExit = $LASTEXITCODE
 
     $ErrorActionPreference = $oldEap
@@ -539,44 +583,6 @@ if (-not $changes) {
 # ---------------------------------------------------------------------------
 # 13. Scheduler — offer to set up if no scheduled task exists yet
 # ---------------------------------------------------------------------------
-$taskName = "HausOfSutra-InstagramSync"
-$existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-
-if (-not $existingTask -and -not $Unattended) {
-    Write-Host ""
-    $scheduleIt = Read-Host "  Would you like this script to run automatically every 12 hours? (Y/N)"
-    if ($scheduleIt -eq "Y" -or $scheduleIt -eq "y") {
-        $scriptPath = $MyInvocation.MyCommand.Path
-        $action = New-ScheduledTaskAction `
-            -Execute "powershell.exe" `
-            -Argument "-NonInteractive -ExecutionPolicy Bypass -File `"$scriptPath`" -Unattended"
-
-        $trigger = New-ScheduledTaskTrigger -AtLogOn
-        $trigger.RepetitionInterval = [TimeSpan]::FromHours(12)
-        $trigger.RepetitionDuration = [TimeSpan]::FromDays(9999)
-
-        $settings = New-ScheduledTaskSettingsSet `
-            -ExecutionTimeLimit (New-TimeSpan -Hours 1) `
-            -StartWhenAvailable
-
-        $principal = New-ScheduledTaskPrincipal `
-            -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) `
-            -LogonType Interactive `
-            -RunLevel Limited
-
-        Register-ScheduledTask `
-            -TaskName $taskName `
-            -Action $action `
-            -Trigger $trigger `
-            -Settings $settings `
-            -Principal $principal `
-            -Description "Auto-syncs Haus of Sutra Instagram feed every 12 hours." | Out-Null
-
-        Write-Success "Scheduled task '$taskName' registered."
-        Write-Status "It will run at logon and repeat every 12 hours."
-    } else {
-        Write-Warn "No problem. You can always re-run this script manually."
-    }
-}
+Invoke-SchedulerSetup
 
 Write-Host ""
