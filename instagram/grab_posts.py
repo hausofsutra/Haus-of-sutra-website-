@@ -57,6 +57,7 @@ def main():
         download_comments=False,
         save_metadata=False,
         compress_json=False,
+        request_timeout=60,
     )
 
     # Try to load saved session for better reliability

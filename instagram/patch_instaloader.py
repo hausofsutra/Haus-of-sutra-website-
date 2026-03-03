@@ -110,6 +110,21 @@ def patch_from_username(pkg: Path) -> bool:
     return _patch_file(structures, old, new, "from_username: GraphQL-first ordering")
 
 
+def patch_get_posts_doc_id(pkg: Path) -> bool:
+    """Replace revoked doc_id in get_posts() with the new working one (PR #2663).
+
+    Instagram revoked doc_id 7898261790222653 used by Profile.get_posts() when
+    logged in.  The new doc_id 34579740524958711 uses the same endpoint and is
+    already in use by from_username(), so it is known-good.
+    """
+    structures = pkg / "structures.py"
+
+    old = '            doc_id="7898261790222653" if logged_in else "7950326061742207",'
+    new = '            doc_id="34579740524958711" if logged_in else "7950326061742207",'
+
+    return _patch_file(structures, old, new, "get_posts: replace revoked doc_id (PR #2663)")
+
+
 def patch_401_rate_limit(pkg: Path) -> bool:
     """Treat 401 'Please wait' responses as TooManyRequestsException."""
     ctx = pkg / "instaloadercontext.py"
@@ -140,8 +155,9 @@ def main():
     print("Patching instaloader...")
     pkg = _find_package_dir()
     p1 = patch_from_username(pkg)
-    p2 = patch_401_rate_limit(pkg)
-    if p1 or p2:
+    p2 = patch_get_posts_doc_id(pkg)
+    p3 = patch_401_rate_limit(pkg)
+    if p1 or p2 or p3:
         print("Done - patches applied.")
     else:
         print("Done - no changes needed.")
