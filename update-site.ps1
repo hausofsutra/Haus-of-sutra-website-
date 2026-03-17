@@ -574,6 +574,17 @@ if (-not $changes) {
     Write-Host ""
     # Still check scheduler at the end
 } else {
+    # -------------------------------------------------------------------
+    # Detect new post IDs (before staging) for notification
+    # -------------------------------------------------------------------
+    $newPostIds = @()
+    $diffOutput = & git -C $RepoRoot diff --name-only "instagram/posts/" 2>&1
+    $statusOutput = & git -C $RepoRoot status --porcelain "instagram/posts/" 2>&1
+    foreach ($line in $statusOutput) {
+        if ($line -match '^\?\?|^A') {
+            $newPostIds += [System.IO.Path]::GetFileNameWithoutExtension($line.Trim().Split(' ')[-1])
+        }
+    }
     Write-Success "Changes detected - committing..."
 
     # -----------------------------------------------------------------------
@@ -670,6 +681,96 @@ if (-not $changes) {
     # 12. Update last-run timestamp
     # -----------------------------------------------------------------------
     Set-Content -Path $LastRunFile -Value (Get-Date).ToUniversalTime().ToString("o")
+
+    # -------------------------------------------------------------------
+    # Send OneSignal push notification if new posts were found
+    # -------------------------------------------------------------------
+    if ($newPostIds.Count -gt 0) {
+        Write-Host ""
+        Write-Status "Sending push notification for $($newPostIds.Count) new post(s)..."
+
+        $osCredTarget = "HausOfSutra-OneSignal"
+        $osApiKey = $null
+
+        # Try to load from Credential Manager
+        if ($vault) {
+            try {
+                $osCred = $vault.Retrieve($osCredTarget, "apikey")
+                $osCred.RetrievePassword()
+                $osApiKey = $osCred.Password
+            } catch { $osApiKey = $null }
+        }
+
+        # Prompt securely if not stored
+        if (-not $osApiKey) {
+            if ($Unattended) {
+                Write-Warn "OneSignal API key not stored - skipping notification (unattended)."
+            } else {
+                Write-Host "  OneSignal REST API Key not found in Credential Manager." -ForegroundColor Yellow
+                Write-Host "  Find it at: OneSignal Dashboard -> Settings -> Keys & IDs" -ForegroundColor Cyan
+                $osKeySecure = Read-Host "  Enter your OneSignal REST API Key" -AsSecureString
+                $osBSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($osKeySecure)
+                $osApiKey = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($osBSTR)
+                [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($osBSTR)
+
+                # Save to Credential Manager
+                if ($vault -and $osApiKey) {
+                    try {
+                        try { $vault.Remove($vault.Retrieve($osCredTarget, "apikey")) } catch { }
+                        $newOsCred = [Windows.Security.Credentials.PasswordCredential]::new(
+                            $osCredTarget, "apikey", $osApiKey)
+                        $vault.Add($newOsCred)
+                        Write-Success "OneSignal API key saved to Windows Credential Manager."
+                    } catch {
+                        Write-Warn "Could not save to Credential Manager: $_"
+                    }
+                }
+            }
+        }
+
+        if ($osApiKey) {
+            # Read feed.json for the latest post caption
+            $feedFile = Join-Path $RepoRoot "instagram\feed.json"
+            $notifMessage = "New show announced - check it out!"
+            if (Test-Path $feedFile) {
+                try {
+                    $feed = Get-Content $feedFile -Raw | ConvertFrom-Json
+                    $latestPost = $feed.posts | Where-Object { $newPostIds -contains $_.id } | Select-Object -First 1
+                    if (-not $latestPost) { $latestPost = $feed.posts | Select-Object -First 1 }
+                    if ($latestPost -and $latestPost.prunedCaption) {
+                        $notifMessage = $latestPost.prunedCaption
+                    }
+                } catch { }
+            }
+
+            $body = @{
+                app_id            = "7c46a1ab-7b89-488b-a014-252a0111eaab"
+                included_segments = @("All")
+                headings          = @{ en = "Haus of Sutra" }
+                contents          = @{ en = $notifMessage }
+                url               = "https://hausofsutra.com"
+            } | ConvertTo-Json
+
+            try {
+                $response = Invoke-RestMethod `
+                    -Uri "https://onesignal.com/api/v1/notifications" `
+                    -Method Post `
+                    -Headers @{
+                        "Authorization" = "Basic $osApiKey"
+                        "Content-Type"  = "application/json"
+                    } `
+                    -Body $body `
+                    -ErrorAction Stop
+
+                Write-Success "Push notification sent! (id: $($response.id))"
+            } catch {
+                Write-Warn "Push notification failed: $_"
+            }
+
+            $osApiKey = $null
+            [System.GC]::Collect()
+        }
+    }
 
     Write-Host ""
     Write-Success "Feed synced, committed, and pushed."

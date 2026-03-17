@@ -1,0 +1,21 @@
+{
+  "name": "Haus of Sutra",
+  "short_name": "Haus of Sutra",
+  "description": "Seattle/Tacoma Artist Collective",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "instagram/profile.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "instagram/profile.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
