@@ -39,20 +39,6 @@
         OneSignalDeferred.push(async function(OneSignal) {
             await OneSignal.init({
                 appId: "7c46a1ab-7b89-488b-a014-252a0111eaab",
-                promptOptions: {
-                    slidedown: {
-                        prompts: [{
-                            type: "push",
-                            autoPrompt: true,
-                            text: {
-                                actionMessage: "Get notified when Haus of Sutra announces new shows!",
-                                acceptButton: "Yes, notify me",
-                                cancelButton: "No thanks"
-                            },
-                            delay: { pageViews: 1, timeDelay: 5 }
-                        }]
-                    }
-                }
             });
         });
     </script>
