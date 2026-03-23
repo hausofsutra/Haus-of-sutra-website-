@@ -141,7 +141,7 @@ def main():
     # Save feed JSON
     with open(FEED_FILE, "w", encoding="utf-8") as f:
         json.dump(feed_data, f, indent=2, ensure_ascii=False)
-    print(f"\n✓ Saved feed.json with {len(posts_data)} posts")
+    print(f"\nSaved feed.json with {len(posts_data)} posts")
     
     # Cleanup old posts and save current shortcodes
     cleanup_old_posts(current_shortcodes)

@@ -40,41 +40,24 @@ def _patch_file(path: Path, old: str, new: str, label: str) -> bool:
 
 
 def patch_from_username(pkg: Path) -> bool:
-    """Reorder from_username: GraphQL first, TopSearchResults fallback."""
+    """Replace broken search doc_id with working timeline GraphQL query."""
     structures = pkg / "structures.py"
 
+    # The fork (cxyfer/instaloader@fix/profile-graphql-v4.16) uses doc_id
+    # 26347858941511777 which returns a CRITICAL execution error from Instagram.
+    # Replace it with the working doc_id 34579740524958711 (timeline endpoint).
     old = """\
-        for profile in TopSearchResults(context, username).get_profiles():
-            if profile.username.lower() == username.lower():
-                profile._obtain_metadata()
-                return profile
+        data = context.doc_id_graphql_query("26347858941511777", {"hasQuery": True, "query": username})["data"]
+        if data:
+            for user in data["xdt_api__v1__fbsearch__non_profiled_serp"]["users"]:
+                if user["username"].lower() == username.lower():
+                    return cls(context, user)
 
-        variables = {
-            "data": {
-                "count":12,
-                "include_reel_media_seen_timestamp": False,
-                "include_relationship_info": True,
-                "latest_besties_reel_media": False,
-                "latest_reel_media": False
-            },
-            "username":username
-        }
-
-        data = context.doc_id_graphql_query('34579740524958711', variables)
-        try:
-            user_info = data["data"]["xdt_api__v1__feed__user_timeline_graphql_connection"]["edges"][0]["node"]["user"]
-            profile = cls(context, user_info)
-            profile._obtain_metadata()
-            return profile
-        except (KeyError, IndexError):
-            pass
-
-        raise ProfileNotExistsException("No profile found, the user may have blocked you (ID: " +
-                                        str(username) + ").")\
+        raise ProfileNotExistsException("Profile {} does not exist.".format(username))\
 """
 
     new = """\
-        # Try GraphQL first (most reliable, avoids deprecated search endpoint)
+        # doc_id 26347858941511777 (search) returns CRITICAL errors; use timeline endpoint instead
         try:
             variables = {
                 "data": {
@@ -86,28 +69,16 @@ def patch_from_username(pkg: Path) -> bool:
                 },
                 "username": username
             }
-            data = context.doc_id_graphql_query('34579740524958711', variables)
+            data = context.doc_id_graphql_query("34579740524958711", variables)
             user_info = data["data"]["xdt_api__v1__feed__user_timeline_graphql_connection"]["edges"][0]["node"]["user"]
-            profile = cls(context, user_info)
-            profile._obtain_metadata()
-            return profile
-        except (ConnectionException, KeyError, IndexError):
+            return cls(context, user_info)
+        except (KeyError, IndexError, Exception):
             pass
 
-        # Fall back to TopSearchResults (deprecated, may not work without auth)
-        try:
-            for profile in TopSearchResults(context, username).get_profiles():
-                if profile.username.lower() == username.lower():
-                    profile._obtain_metadata()
-                    return profile
-        except (ConnectionException, KeyError):
-            pass
-
-        raise ProfileNotExistsException("No profile found, the user may have blocked you (ID: " +
-                                        str(username) + ").")\
+        raise ProfileNotExistsException("Profile {} does not exist.".format(username))\
 """
 
-    return _patch_file(structures, old, new, "from_username: GraphQL-first ordering")
+    return _patch_file(structures, old, new, "from_username: replace broken search doc_id with timeline query")
 
 
 def patch_get_posts_doc_id(pkg: Path) -> bool:
