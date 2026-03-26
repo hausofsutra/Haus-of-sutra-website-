@@ -1,6 +1,9 @@
 // Local Instagram Feed (synced via GitHub Actions)
 const FEED_URL = './instagram/feed.json';
 
+// Firefox doesn't support -webkit-box-reflect; we build DOM reflections instead
+const supportsBoxReflect = CSS.supports('-webkit-box-reflect', 'below 1px');
+
 const wheel = document.getElementById('carousel');
 const usernameEl = document.getElementById('username');
 const profileAvatarEl = document.getElementById('profileAvatar');
@@ -89,6 +92,17 @@ async function loadFeed() {
                     // Otherwise use cover to fill the card nicely
                     this.style.objectFit = ratio > 1.25 ? 'contain' : 'cover';
                 };
+            }
+
+            // DOM-based reflection for Firefox (no -webkit-box-reflect support)
+            if (!supportsBoxReflect) {
+                const reflection = document.createElement('div');
+                reflection.className = 'reflection';
+                const reflImg = document.createElement('img');
+                reflImg.src = imgUrl;
+                reflImg.alt = '';
+                reflection.appendChild(reflImg);
+                item.appendChild(reflection);
             }
 
             wheel.appendChild(item);
