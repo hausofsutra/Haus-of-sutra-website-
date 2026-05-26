@@ -122,13 +122,40 @@ def patch_401_rate_limit(pkg: Path) -> bool:
     return _patch_file(ctx, old, new, "get_json: 401 rate-limit backoff")
 
 
+def patch_obtain_metadata_bad_request(pkg: Path) -> bool:
+    """Skip the broken PolarisProfilePageContentQuery in _obtain_metadata().
+
+    Doc_id 25980296051578533 (PolarisProfilePageContentQuery) returns 400 Bad Request.
+    When logged in, get_posts() only needs self.username — not the full metadata —
+    so we can safely bail out of _obtain_metadata() on a 400 and continue.
+    """
+    structures = pkg / "structures.py"
+
+    old = """\
+                data = self._context.doc_id_graphql_query('25980296051578533', variables)\
+"""
+
+    new = """\
+                try:
+                    data = self._context.doc_id_graphql_query('25980296051578533', variables)
+                except QueryReturnedBadRequestException:
+                    # doc_id 25980296051578533 is revoked; skip full metadata fetch.
+                    # get_posts() only needs self.username when logged in, so this is safe.
+                    self._has_full_metadata = True
+                    return\
+"""
+
+    return _patch_file(structures, old, new, "_obtain_metadata: skip revoked doc_id on 400 Bad Request")
+
+
 def main():
     print("Patching instaloader...")
     pkg = _find_package_dir()
     p1 = patch_from_username(pkg)
     p2 = patch_get_posts_doc_id(pkg)
     p3 = patch_401_rate_limit(pkg)
-    if p1 or p2 or p3:
+    p4 = patch_obtain_metadata_bad_request(pkg)
+    if p1 or p2 or p3 or p4:
         print("Done - patches applied.")
     else:
         print("Done - no changes needed.")
